@@ -1,12 +1,40 @@
-// Vercel Serverless API - 使用 Vercel KV 持久化
-
-import { kv } from '@vercel/kv';
+// Vercel Serverless API - 使用 Upstash Redis
 
 const INITIAL_RECORDS = [
   { id: 1, name: '张三', phone: '13800138000', email: 'zhangsan@example.com', address: '北京市朝阳区', remark: 'VIP客户', createdAt: '2024-01-15' },
   { id: 2, name: '李四', phone: '13900139000', email: 'lisi@example.com', address: '上海市浦东新区', remark: '', createdAt: '2024-01-16' },
   { id: 3, name: '王五', phone: '13700137000', email: 'wangwu@example.com', address: '广州市天河区', remark: '重要客户', createdAt: '2024-01-17' },
 ];
+
+// 获取 Redis 连接
+async function getRedis() {
+  const url = process.env.UPSTASH_REDIS_REST_URL;
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+  
+  if (!url || !token) {
+    throw new Error('Redis 环境变量未配置');
+  }
+  
+  return { url, token };
+}
+
+// 执行 Redis 命令
+async function redisCommand(cmd) {
+  const { url, token } = await getRedis();
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(cmd)
+  });
+  const data = await res.json();
+  if (data.error) {
+    throw new Error(data.error);
+  }
+  return data.result;
+}
 
 export default async function handler(req, res) {
   // 设置 CORS
@@ -36,12 +64,15 @@ export default async function handler(req, res) {
   }
 
   try {
-    // 初始化数据（如果不存在）
-    let records = await kv.get('records');
+    // 获取记录
+    let recordsData = await redisCommand(['GET', 'records']);
+    let records = recordsData ? JSON.parse(recordsData) : null;
+    
+    // 如果不存在，初始化
     if (!records) {
       records = INITIAL_RECORDS;
-      await kv.set('records', records);
-      await kv.set('nextId', 4);
+      await redisCommand(['SET', 'records', JSON.stringify(records)]);
+      await redisCommand(['SET', 'nextId', '4']);
     }
 
     // GET /api/records - 获取所有记录
@@ -73,7 +104,8 @@ export default async function handler(req, res) {
         return;
       }
       
-      let nextId = await kv.get('nextId') || 4;
+      let nextIdData = await redisCommand(['GET', 'nextId']);
+      let nextId = nextIdData ? parseInt(nextIdData) : 4;
       
       const newRecord = {
         id: nextId,
@@ -86,8 +118,8 @@ export default async function handler(req, res) {
       };
       
       records.push(newRecord);
-      await kv.set('records', records);
-      await kv.set('nextId', nextId + 1);
+      await redisCommand(['SET', 'records', JSON.stringify(records)]);
+      await redisCommand(['SET', 'nextId', String(nextId + 1)]);
       
       res.status(201).json({ id: newRecord.id, message: '添加成功' });
       return;
@@ -114,7 +146,7 @@ export default async function handler(req, res) {
         remark: remark || ''
       };
       
-      await kv.set('records', records);
+      await redisCommand(['SET', 'records', JSON.stringify(records)]);
       
       res.status(200).json({ message: '更新成功' });
       return;
@@ -131,7 +163,7 @@ export default async function handler(req, res) {
       }
       
       records.splice(index, 1);
-      await kv.set('records', records);
+      await redisCommand(['SET', 'records', JSON.stringify(records)]);
       
       res.status(200).json({ message: '删除成功' });
       return;
