@@ -1,4 +1,4 @@
-// 使用相对路径，部署后会自动指向同域名
+// Vercel 部署时 API 在 /api/ 目录下
 
 interface Record {
   id: number;
@@ -15,8 +15,8 @@ const api = {
   async getRecords(search?: string): Promise<Record[]> {
     try {
       const url = search 
-        ? `/records?search=${encodeURIComponent(search)}`
-        : '/records';
+        ? `/api/records?search=${encodeURIComponent(search)}`
+        : '/api/records';
       const res = await fetch(url);
       if (!res.ok) throw new Error('Network response was not ok');
       return res.json();
@@ -28,7 +28,7 @@ const api = {
   
   // 添加记录
   async addRecord(data: { name: string; phone?: string; email?: string; address?: string; remark?: string }): Promise<{ id: number }> {
-    const res = await fetch('/records', {
+    const res = await fetch('/api/records', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
@@ -38,7 +38,7 @@ const api = {
   
   // 更新记录
   async updateRecord(id: number, data: { name: string; phone?: string; email?: string; address?: string; remark?: string }): Promise<void> {
-    await fetch(`/records/${id}`, {
+    await fetch(`/api/records/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
@@ -47,7 +47,7 @@ const api = {
   
   // 删除记录
   async deleteRecord(id: number): Promise<void> {
-    await fetch(`/records/${id}`, {
+    await fetch(`/api/records/${id}`, {
       method: 'DELETE'
     });
   }

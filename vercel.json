@@ -2,11 +2,5 @@
   "framework": "vite",
   "buildCommand": "pnpm build",
   "outputDirectory": "dist",
-  "installCommand": "pnpm install",
-  "routes": [
-    {
-      "src": "/api/(.*)",
-      "dest": "/api/records"
-    }
-  ]
+  "installCommand": "pnpm install"
 }
