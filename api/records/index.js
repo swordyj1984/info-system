@@ -1,14 +1,14 @@
-// Vercel Serverless API - 官方格式
+// Vercel Serverless API - 使用 Vercel KV 持久化
 
-const records = [
+import { kv } from '@vercel/kv';
+
+const INITIAL_RECORDS = [
   { id: 1, name: '张三', phone: '13800138000', email: 'zhangsan@example.com', address: '北京市朝阳区', remark: 'VIP客户', createdAt: '2024-01-15' },
   { id: 2, name: '李四', phone: '13900139000', email: 'lisi@example.com', address: '上海市浦东新区', remark: '', createdAt: '2024-01-16' },
   { id: 3, name: '王五', phone: '13700137000', email: 'wangwu@example.com', address: '广州市天河区', remark: '重要客户', createdAt: '2024-01-17' },
 ];
 
-let nextId = 4;
-
-export default function handler(req, res) {
+export default async function handler(req, res) {
   // 设置 CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
@@ -23,17 +23,27 @@ export default function handler(req, res) {
   const url = req.url || '';
   const searchIndex = url.indexOf('?');
   const path = searchIndex >= 0 ? url.substring(0, searchIndex) : url;
-  const searchParams = searchIndex >= 0 ? url.substring(searchIndex + 1) : '';
   
   // 解析 search 参数
   let search = '';
-  searchParams.split('&').forEach(param => {
-    if (param.startsWith('search=')) {
-      search = decodeURIComponent(param.substring(7));
-    }
-  });
+  if (searchIndex >= 0) {
+    const searchParams = url.substring(searchIndex + 1);
+    searchParams.split('&').forEach(param => {
+      if (param.startsWith('search=')) {
+        search = decodeURIComponent(param.substring(7));
+      }
+    });
+  }
 
   try {
+    // 初始化数据（如果不存在）
+    let records = await kv.get('records');
+    if (!records) {
+      records = INITIAL_RECORDS;
+      await kv.set('records', records);
+      await kv.set('nextId', 4);
+    }
+
     // GET /api/records - 获取所有记录
     if (req.method === 'GET' && path === '/api/records') {
       let result = [...records];
@@ -63,8 +73,10 @@ export default function handler(req, res) {
         return;
       }
       
+      let nextId = await kv.get('nextId') || 4;
+      
       const newRecord = {
-        id: nextId++,
+        id: nextId,
         name,
         phone: phone || '',
         email: email || '',
@@ -74,6 +86,8 @@ export default function handler(req, res) {
       };
       
       records.push(newRecord);
+      await kv.set('records', records);
+      await kv.set('nextId', nextId + 1);
       
       res.status(201).json({ id: newRecord.id, message: '添加成功' });
       return;
@@ -100,6 +114,8 @@ export default function handler(req, res) {
         remark: remark || ''
       };
       
+      await kv.set('records', records);
+      
       res.status(200).json({ message: '更新成功' });
       return;
     }
@@ -115,6 +131,7 @@ export default function handler(req, res) {
       }
       
       records.splice(index, 1);
+      await kv.set('records', records);
       
       res.status(200).json({ message: '删除成功' });
       return;
