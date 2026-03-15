@@ -1,4 +1,4 @@
-// Vercel Serverless API - 简化版
+// Vercel Serverless API - 官方格式
 
 const records = [
   { id: 1, name: '张三', phone: '13800138000', email: 'zhangsan@example.com', address: '北京市朝阳区', remark: 'VIP客户', createdAt: '2024-01-15' },
@@ -8,7 +8,7 @@ const records = [
 
 let nextId = 4;
 
-module.exports = async function(req, res) {
+export default function handler(req, res) {
   // 设置 CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
@@ -55,11 +55,7 @@ module.exports = async function(req, res) {
 
     // POST /api/records - 添加记录
     if (req.method === 'POST' && path === '/api/records') {
-      let body = '';
-      for await (const chunk of req) {
-        body += chunk;
-      }
-      const data = JSON.parse(body);
+      const data = req.body || {};
       const { name, phone, email, address, remark } = data;
       
       if (!name) {
@@ -86,11 +82,7 @@ module.exports = async function(req, res) {
     // PUT /api/records/:id - 更新记录
     if (req.method === 'PUT' && path.match(/^\/api\/records\/\d+$/)) {
       const id = parseInt(path.split('/').pop());
-      let body = '';
-      for await (const chunk of req) {
-        body += chunk;
-      }
-      const data = JSON.parse(body);
+      const data = req.body || {};
       const { name, phone, email, address, remark } = data;
       
       const index = records.findIndex(r => r.id === id);
@@ -133,4 +125,4 @@ module.exports = async function(req, res) {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
-};
+}
