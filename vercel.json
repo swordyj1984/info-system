@@ -1,11 +1,1 @@
-{
-  "framework": "vite",
-  "buildCommand": "pnpm build",
-  "outputDirectory": "dist",
-  "installCommand": "pnpm install",
-  "functions": {
-    "api/records.js": {
-      "runtime": "nodejs:default"
-    }
-  }
-}
+{"framework": "vite", "buildCommand": "pnpm build", "outputDirectory": "dist", "installCommand": "pnpm install"}
