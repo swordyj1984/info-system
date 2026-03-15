@@ -1,4 +1,4 @@
-// Vercel Serverless API - 使用 Upstash Redis
+// Vercel Serverless API - Upstash Redis 简化版
 
 const INITIAL_RECORDS = [
   { id: 1, name: '张三', phone: '13800138000', email: 'zhangsan@example.com', address: '北京市朝阳区', remark: 'VIP客户', createdAt: '2024-01-15' },
@@ -6,8 +6,8 @@ const INITIAL_RECORDS = [
   { id: 3, name: '王五', phone: '13700137000', email: 'wangwu@example.com', address: '广州市天河区', remark: '重要客户', createdAt: '2024-01-17' },
 ];
 
-// 获取 Redis 连接
-async function getRedis() {
+// 执行 Redis 命令
+async function redisCommand(...args) {
   const url = process.env.UPSTASH_REDIS_REST_URL;
   const token = process.env.UPSTASH_REDIS_REST_TOKEN;
   
@@ -15,24 +15,21 @@ async function getRedis() {
     throw new Error('Redis 环境变量未配置');
   }
   
-  return { url, token };
-}
-
-// 执行 Redis 命令
-async function redisCommand(cmd) {
-  const { url, token } = await getRedis();
   const res = await fetch(url, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${token}`,
       'Content-Type': 'application/json'
     },
-    body: JSON.stringify(cmd)
+    body: JSON.stringify(args)
   });
+  
   const data = await res.json();
+  
   if (data.error) {
     throw new Error(data.error);
   }
+  
   return data.result;
 }
 
@@ -48,31 +45,31 @@ export default async function handler(req, res) {
     return;
   }
 
-  const url = req.url || '';
-  const searchIndex = url.indexOf('?');
-  const path = searchIndex >= 0 ? url.substring(0, searchIndex) : url;
-  
-  // 解析 search 参数
-  let search = '';
-  if (searchIndex >= 0) {
-    const searchParams = url.substring(searchIndex + 1);
-    searchParams.split('&').forEach(param => {
-      if (param.startsWith('search=')) {
-        search = decodeURIComponent(param.substring(7));
-      }
-    });
-  }
-
   try {
+    const url = req.url || '';
+    const searchIndex = url.indexOf('?');
+    const path = searchIndex >= 0 ? url.substring(0, searchIndex) : url;
+    
+    // 解析 search 参数
+    let search = '';
+    if (searchIndex >= 0) {
+      const searchParams = url.substring(searchIndex + 1);
+      searchParams.split('&').forEach(param => {
+        if (param.startsWith('search=')) {
+          search = decodeURIComponent(param.substring(7));
+        }
+      });
+    }
+
     // 获取记录
-    let recordsData = await redisCommand(['GET', 'records']);
+    let recordsData = await redisCommand('GET', 'records');
     let records = recordsData ? JSON.parse(recordsData) : null;
     
     // 如果不存在，初始化
     if (!records) {
       records = INITIAL_RECORDS;
-      await redisCommand(['SET', 'records', JSON.stringify(records)]);
-      await redisCommand(['SET', 'nextId', '4']);
+      await redisCommand('SET', 'records', JSON.stringify(records));
+      await redisCommand('SET', 'nextId', '4');
     }
 
     // GET /api/records - 获取所有记录
@@ -104,7 +101,7 @@ export default async function handler(req, res) {
         return;
       }
       
-      let nextIdData = await redisCommand(['GET', 'nextId']);
+      let nextIdData = await redisCommand('GET', 'nextId');
       let nextId = nextIdData ? parseInt(nextIdData) : 4;
       
       const newRecord = {
@@ -118,8 +115,8 @@ export default async function handler(req, res) {
       };
       
       records.push(newRecord);
-      await redisCommand(['SET', 'records', JSON.stringify(records)]);
-      await redisCommand(['SET', 'nextId', String(nextId + 1)]);
+      await redisCommand('SET', 'records', JSON.stringify(records));
+      await redisCommand('SET', 'nextId', String(nextId + 1));
       
       res.status(201).json({ id: newRecord.id, message: '添加成功' });
       return;
@@ -146,7 +143,7 @@ export default async function handler(req, res) {
         remark: remark || ''
       };
       
-      await redisCommand(['SET', 'records', JSON.stringify(records)]);
+      await redisCommand('SET', 'records', JSON.stringify(records));
       
       res.status(200).json({ message: '更新成功' });
       return;
@@ -163,7 +160,7 @@ export default async function handler(req, res) {
       }
       
       records.splice(index, 1);
-      await redisCommand(['SET', 'records', JSON.stringify(records)]);
+      await redisCommand('SET', 'records', JSON.stringify(records));
       
       res.status(200).json({ message: '删除成功' });
       return;
